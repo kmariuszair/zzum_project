@@ -128,6 +128,8 @@ int main(void)
     MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
+    HAL_GPIO_TogglePin(LD_G_GPIO_Port, LD_G_Pin);
+    HAL_Delay(1000);  // [ms]
   }
   /* USER CODE END 3 */
 }
