@@ -32,7 +32,8 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+// include brand new super communication library
+#include <transmit_data.h>
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/

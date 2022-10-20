@@ -57,6 +57,8 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
+packet_with_control data_to_send;	// packet with control to PC
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -87,8 +89,10 @@ void MX_USB_HOST_Process(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+	// copy PC uart pointer to external variable
+	uart_to_pc_ptr = (UART_HandleTypeDef*) &huart2;
 
-  /* USER CODE END 1 */
+	/* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -124,11 +128,26 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  // read data from sensors
+	  //TODO: implement reading data from sensors
+
+	  //calculate yaw-pitch-roll angles from income data
+	  //TODO: implement this part
+
+	  //calculate control
+	  //TODO: implement this part
+
+	  //send control to PC
+	  data_to_send.control = 1;
+	  send_control_packet(data_to_send);
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
+    // hardest part, blink onboard led
     HAL_GPIO_TogglePin(LD_G_GPIO_Port, LD_G_Pin);
+    // sleep for 1s
+    //TODO: change time interval to 10ms and change this delay to more real time
     HAL_Delay(1000);  // [ms]
   }
   /* USER CODE END 3 */
