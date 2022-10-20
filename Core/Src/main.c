@@ -56,8 +56,10 @@ SPI_HandleTypeDef hspi2;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
 packet_with_control data_to_send;	// packet with control to PC
+
+float control_value;// Control value in range[-1 ... 1]
+
 
 /* USER CODE END PV */
 
@@ -74,6 +76,7 @@ static void MX_USART2_UART_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
+float read_joystick();
 
 /* USER CODE END PFP */
 
@@ -91,7 +94,8 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	// copy PC uart pointer to external variable
 	uart_to_pc_ptr = (UART_HandleTypeDef*) &huart2;
-
+	// init control value to 0
+	control_value = 0;
 	/* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -121,7 +125,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USB_HOST_Init();
   /* USER CODE BEGIN 2 */
-
+  data_to_send.control = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -130,7 +134,7 @@ int main(void)
   {
 	  // read data from sensors
 	  //TODO: implement reading data from sensors
-
+	  control_value = read_joystick();
 	  //calculate yaw-pitch-roll angles from income data
 	  //TODO: implement this part
 
@@ -138,17 +142,15 @@ int main(void)
 	  //TODO: implement this part
 
 	  //send control to PC
-	  data_to_send.control = 1;
-	  send_control_packet(data_to_send);
+	  data_to_send.control = control_value;	// set control value to packet
+	  send_control_packet(data_to_send);	// send new packet to PC
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
-    // hardest part, blink onboard led
-    HAL_GPIO_TogglePin(LD_G_GPIO_Port, LD_G_Pin);
-    // sleep for 1s
-    //TODO: change time interval to 10ms and change this delay to more real time
-    HAL_Delay(1000);  // [ms]
+    // sleep for 10ms
+    //TODO: change this delay to more real time
+    HAL_Delay(10);  // [ms]
   }
   /* USER CODE END 3 */
 }
@@ -673,6 +675,19 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/*
+ * Read control signal from on-board joystick
+ */
+float read_joystick(){
+	// read right and left joystick position
+	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1))
+		return -1;	// return -1 if joystick is in left position
+	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_2))
+		return 1;	// return 1 if joystick is in right position
+
+	return 0;	// return 1 if joystick is in right position
+}
+
 
 /* USER CODE END 4 */
 
