@@ -132,9 +132,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  // read data from sensors
+	  // read data from board sensors
 	  //TODO: implement reading data from sensors
-	  control_value = read_joystick();
+	  control_value = read_joystick();	// read data from mounted joystick
 	  //calculate yaw-pitch-roll angles from income data
 	  //TODO: implement this part
 
@@ -148,9 +148,9 @@ int main(void)
     MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
-    // sleep for 10ms
+    // sleep for 50ms
     //TODO: change this delay to more real time
-    HAL_Delay(10);  // [ms]
+    HAL_Delay(50);  // [ms]
   }
   /* USER CODE END 3 */
 }
