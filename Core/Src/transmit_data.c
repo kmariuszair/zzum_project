@@ -19,13 +19,16 @@ UART_HandleTypeDef* uart_to_pc_ptr = NULL;
 
 void send_control_packet(packet_with_control data_to_send){
 
-	// send header bytes
-	for (size_t itr = 0; itr < PACKET_CONTROL_HEADER_SIZE; ++itr)
-		HAL_UART_Transmit(uart_to_pc_ptr, PACKET_CONTROL_HEADER, PACKET_CONTROL_HEADER_SIZE, HAL_MAX_DELAY);
-	// send packet bytes
-	uint8_t* bytes_to_send = (uint8_t*)&data_to_send;
-	HAL_UART_Transmit(uart_to_pc_ptr, bytes_to_send, sizeof(data_to_send), HAL_MAX_DELAY);
+//	// send header bytes
+//	for (size_t itr = 0; itr < PACKET_CONTROL_HEADER_SIZE; ++itr)
+//		HAL_UART_Transmit(uart_to_pc_ptr, PACKET_CONTROL_HEADER, PACKET_CONTROL_HEADER_SIZE, HAL_MAX_DELAY);
+//	// send packet bytes
+//	uint8_t* bytes_to_send = (uint8_t*)&data_to_send;
+//	HAL_UART_Transmit(uart_to_pc_ptr, bytes_to_send, sizeof(data_to_send), HAL_MAX_DELAY);
 
+	char string_to_send[40];
+	size_t string_to_send_size = sprintf(string_to_send, "%f", data_to_send.control);
+	HAL_UART_Transmit(uart_to_pc_ptr, string_to_send, string_to_send_size, HAL_MAX_DELAY);
 	// send terminator bytes
 	for (size_t itr = 0; itr < PACKET_CONTROL_TERMINATOR_SIZE; ++itr)
 		HAL_UART_Transmit(uart_to_pc_ptr, PACKET_CONTROL_TERMINATOR, PACKET_CONTROL_TERMINATOR_SIZE, HAL_MAX_DELAY);
