@@ -55,11 +55,16 @@ SPI_HandleTypeDef hspi2;
 
 UART_HandleTypeDef huart2;
 
+
 /* USER CODE BEGIN PV */
 packet_with_control data_to_send;	// packet with control to PC
 
 float control_value;// Control value in range[-1 ... 1]
 
+// board sensor raw variables
+float gyro_data[3] = {0};
+float acc_data[3] = {0};
+float mag_data[3] = {0};
 
 /* USER CODE END PV */
 
@@ -125,6 +130,11 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USB_HOST_Init();
   /* USER CODE BEGIN 2 */
+  // Init on board sensors
+  BSP_GYRO_Init();
+  BSP_COMPASS_Init();
+
+  // select initial control value
   data_to_send.control = 0;
   /* USER CODE END 2 */
 
@@ -137,13 +147,22 @@ int main(void)
 	  control_value = read_joystick();	// read data from mounted joystick
 	  //calculate yaw-pitch-roll angles from income data
 	  //TODO: implement this part
+	  readCompassData(mag_data);
+	  char buffer [40];
+	  size_t buffer_size = sprintf(buffer, "MAG: %2.2e %2.2e %2.2e \t", mag_data[0], mag_data[1], mag_data[2]);
+	  HAL_UART_Transmit(&huart2, buffer, buffer_size, HAL_MAX_DELAY);
+
+	  readGyroscopeData(gyro_data);
+	  buffer [40];
+	  buffer_size = sprintf(buffer, "GYRO: %2.2f %2.2f %2.2f \r\n", gyro_data[0], gyro_data[1], gyro_data[2]);
+	  HAL_UART_Transmit(&huart2, buffer, buffer_size, HAL_MAX_DELAY);
 
 	  //calculate control
 	  //TODO: implement this part
 
 	  //send control to PC
 	  data_to_send.control = control_value;	// set control value to packet
-	  send_control_packet(data_to_send);	// send new packet to PC
+//	  send_control_packet(data_to_send);	// send new packet to PC
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
 
