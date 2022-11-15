@@ -23,6 +23,7 @@ extern UART_HandleTypeDef* uart_to_pc_ptr;
 typedef struct PacketWithControl{
 	// packet data
 	float control;	// control data to model
+	float control2; //
 }packet_with_control ;
 
 /*

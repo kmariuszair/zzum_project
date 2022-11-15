@@ -20,7 +20,7 @@ UART_HandleTypeDef* uart_to_pc_ptr = NULL;
 void send_control_packet(packet_with_control data_to_send){
 	char string_to_send[40];	// string buffor
 	// format data to string
-	size_t string_to_send_size = sprintf(string_to_send, "%2.2f", data_to_send.control);
+	size_t string_to_send_size = sprintf(string_to_send, "%2.2f %2.2f", data_to_send.control, data_to_send.control2);
 	// send formated data to PC
 	HAL_UART_Transmit(uart_to_pc_ptr, string_to_send, string_to_send_size, HAL_MAX_DELAY);
 	// send terminator bytes

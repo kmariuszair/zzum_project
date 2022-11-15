@@ -60,6 +60,7 @@ UART_HandleTypeDef huart2;
 packet_with_control data_to_send;	// packet with control to PC
 
 float control_value;// Control value in range[-1 ... 1]
+float control_value2;//
 
 // board sensor raw variables
 float gyro_data[3] = {0};
@@ -82,7 +83,7 @@ void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
 float read_joystick();
-
+float read_joystick2();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -145,24 +146,26 @@ int main(void)
 	  // read data from board sensors
 	  //TODO: implement reading data from sensors
 	  control_value = read_joystick();	// read data from mounted joystick
+	  control_value2 = read_joystick2();
 	  //calculate yaw-pitch-roll angles from income data
 	  //TODO: implement this part
-	  readCompassData(mag_data);
-	  char buffer [40];
-	  size_t buffer_size = sprintf(buffer, "MAG: %2.2e %2.2e %2.2e \t", mag_data[0], mag_data[1], mag_data[2]);
-	  HAL_UART_Transmit(&huart2, buffer, buffer_size, HAL_MAX_DELAY);
-
-	  readGyroscopeData(gyro_data);
-	  buffer [40];
-	  buffer_size = sprintf(buffer, "GYRO: %2.2f %2.2f %2.2f \r\n", gyro_data[0], gyro_data[1], gyro_data[2]);
-	  HAL_UART_Transmit(&huart2, buffer, buffer_size, HAL_MAX_DELAY);
+//	  readCompassData(mag_data);
+//	  char buffer [40];
+//	  size_t buffer_size = sprintf(buffer, "MAG: %2.2e %2.2e %2.2e \t", mag_data[0], mag_data[1], mag_data[2]);
+//	  HAL_UART_Transmit(&huart2, buffer, buffer_size, HAL_MAX_DELAY);
+//
+//	  readGyroscopeData(gyro_data);
+//	  buffer [40];
+//	  buffer_size = sprintf(buffer, "GYRO: %2.2f %2.2f %2.2f \r\n", gyro_data[0], gyro_data[1], gyro_data[2]);
+//	  HAL_UART_Transmit(&huart2, buffer, buffer_size, HAL_MAX_DELAY);
 
 	  //calculate control
 	  //TODO: implement this part
 
 	  //send control to PC
 	  data_to_send.control = control_value;	// set control value to packet
-//	  send_control_packet(data_to_send);	// send new packet to PC
+	  data_to_send.control2 = control_value2;
+	  send_control_packet(data_to_send);	// send new packet to PC
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
 
@@ -703,6 +706,16 @@ float read_joystick(){
 		return -1;	// return -1 if joystick is in left position
 	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_2))
 		return 1;	// return 1 if joystick is in right position
+
+	return 0;	// return 1 if joystick is in right position
+}
+
+float read_joystick2(){
+	// read right and left joystick position
+	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3))
+		return -1;	// return -1 if joystick is in up position
+	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5))
+		return 1;	// return 1 if joystick is in down position
 
 	return 0;	// return 1 if joystick is in right position
 }
