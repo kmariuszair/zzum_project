@@ -23,7 +23,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "Fusion.h"
+#include <stdio.h>
+#include "sensor.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -63,9 +65,9 @@ float control_value;// Control value in range[-1 ... 1]
 float control_value2;//
 
 // board sensor raw variables
-float gyro_data[3] = {0};
-float acc_data[3] = {0};
-float mag_data[3] = {0};
+float gyro_data[3] = {0.0};
+float acc_data[3] = {0.0};
+float mag_data[3] = {0.0};
 
 /* USER CODE END PV */
 
@@ -135,37 +137,55 @@ int main(void)
   BSP_GYRO_Init();
   BSP_COMPASS_Init();
 
+  // AHRS Madgwick
+  FusionAhrs ahrs;
+  FusionAhrsInitialise(&ahrs);
+
+  //UART buffer
+  char UARTbuffer[55];
+  size_t buffer_size;
+
+  //Loop period
+  float deltaTime = 50.0/1000.0;
+
   // select initial control value
-  data_to_send.control = 0;
+//  data_to_send.control = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  // read data from board sensors
-	  //TODO: implement reading data from sensors
-	  control_value = read_joystick();	// read data from mounted joystick
-	  control_value2 = read_joystick2();
-	  //calculate yaw-pitch-roll angles from income data
-	  //TODO: implement this part
-//	  readCompassData(mag_data);
-//	  char buffer [40];
-//	  size_t buffer_size = sprintf(buffer, "MAG: %2.2e %2.2e %2.2e \t", mag_data[0], mag_data[1], mag_data[2]);
-//	  HAL_UART_Transmit(&huart2, buffer, buffer_size, HAL_MAX_DELAY);
-//
-//	  readGyroscopeData(gyro_data);
-//	  buffer [40];
-//	  buffer_size = sprintf(buffer, "GYRO: %2.2f %2.2f %2.2f \r\n", gyro_data[0], gyro_data[1], gyro_data[2]);
-//	  HAL_UART_Transmit(&huart2, buffer, buffer_size, HAL_MAX_DELAY);
+//	  control_value = read_joystick();	// read data from mounted joystick
+//	  control_value2 = read_joystick2();
 
-	  //calculate control
-	  //TODO: implement this part
+	  readCompassData(mag_data);
+	  readGyroscopeData(gyro_data);
+	  readAccelometerData(acc_data);
+
+	  FusionVector gyroscope     = {gyro_data[0], gyro_data[1], gyro_data[2]}; // replace this with actual gyroscope data in degrees/s
+	  FusionVector accelerometer = {acc_data[0], acc_data[1], acc_data[2]}; // replace this with actual accelerometer data in g
+	  FusionVector magnetometer  = {mag_data[0], mag_data[1], mag_data[2]};
+
+	  FusionAhrsUpdate(&ahrs, gyroscope, accelerometer, magnetometer, deltaTime);
+
+	  const FusionEuler euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
+//	  const FusionVector earth = FusionAhrsGetEarthAcceleration(&ahrs);
+
+//	  buffer_size = sprintf(UARTbuffer, "Roll %0.1f, Pitch %0.1f, Yaw %0.1f \r\n",
+//	  			  euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
+
+//	  buffer_size = sprintf(UARTbuffer, "Roll %0.1f, Pitch %0.1f, Yaw %0.1f, X %0.1f, Y %0.1f, Z %0.1f \r\n",
+//			  euler.angle.roll, euler.angle.pitch, euler.angle.yaw,
+//			  earth.axis.x, earth.axis.y, earth.axis.z);
+
+	  HAL_UART_Transmit(&huart2, UARTbuffer, buffer_size, HAL_MAX_DELAY);
 
 	  //send control to PC
-	  data_to_send.control = control_value;	// set control value to packet
-	  data_to_send.control2 = control_value2;
+	  data_to_send.control  = euler.angle.roll/180;	// set control value to packet
+	  data_to_send.control2 = euler.angle.pitch/180;
 	  send_control_packet(data_to_send);	// send new packet to PC
+
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
 
