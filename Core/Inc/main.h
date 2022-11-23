@@ -57,6 +57,12 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 
+float read_joystick();
+float read_joystick2();
+
+void control_function();
+
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

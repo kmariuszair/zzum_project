@@ -55,8 +55,9 @@ SAI_HandleTypeDef hsai_BlockB1;
 
 SPI_HandleTypeDef hspi2;
 
-UART_HandleTypeDef huart2;
+TIM_HandleTypeDef htim7;
 
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 packet_with_control data_to_send;	// packet with control to PC
@@ -68,6 +69,15 @@ float control_value2;//
 float gyro_data[3] = {0.0};
 float acc_data[3] = {0.0};
 float mag_data[3] = {0.0};
+
+//UART buffer
+char UARTbuffer[55];
+size_t buffer_size;
+
+//Loop period
+float deltaTime = 50.0/1000.0;
+
+FusionAhrs ahrs;
 
 /* USER CODE END PV */
 
@@ -81,11 +91,11 @@ static void MX_QUADSPI_Init(void);
 static void MX_SAI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM7_Init(void);
 void MX_USB_HOST_Process(void);
 
 /* USER CODE BEGIN PFP */
-float read_joystick();
-float read_joystick2();
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -104,7 +114,7 @@ int main(void)
 	uart_to_pc_ptr = (UART_HandleTypeDef*) &huart2;
 	// init control value to 0
 	control_value = 0;
-	/* USER CODE END 1 */
+  /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -132,22 +142,17 @@ int main(void)
   MX_SPI2_Init();
   MX_USART2_UART_Init();
   MX_USB_HOST_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
   // Init on board sensors
   BSP_GYRO_Init();
   BSP_COMPASS_Init();
 
   // AHRS Madgwick
-  FusionAhrs ahrs;
+
   FusionAhrsInitialise(&ahrs);
 
-  //UART buffer
-  char UARTbuffer[55];
-  size_t buffer_size;
-
-  //Loop period
-  float deltaTime = 50.0/1000.0;
-
+  HAL_TIM_Base_Start_IT(&htim7);
   // select initial control value
 //  data_to_send.control = 0;
   /* USER CODE END 2 */
@@ -156,35 +161,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  control_value = read_joystick();	// read data from mounted joystick
-//	  control_value2 = read_joystick2();
 
-	  readCompassData(mag_data);
-	  readGyroscopeData(gyro_data);
-	  readAccelometerData(acc_data);
-
-	  FusionVector gyroscope     = {gyro_data[0], gyro_data[1], gyro_data[2]}; // replace this with actual gyroscope data in degrees/s
-	  FusionVector accelerometer = {acc_data[0], acc_data[1], acc_data[2]}; // replace this with actual accelerometer data in g
-	  FusionVector magnetometer  = {mag_data[0], mag_data[1], mag_data[2]};
-
-	  FusionAhrsUpdate(&ahrs, gyroscope, accelerometer, magnetometer, deltaTime);
-
-	  const FusionEuler euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
-//	  const FusionVector earth = FusionAhrsGetEarthAcceleration(&ahrs);
-
-//	  buffer_size = sprintf(UARTbuffer, "Roll %0.1f, Pitch %0.1f, Yaw %0.1f \r\n",
-//	  			  euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
-
-//	  buffer_size = sprintf(UARTbuffer, "Roll %0.1f, Pitch %0.1f, Yaw %0.1f, X %0.1f, Y %0.1f, Z %0.1f \r\n",
-//			  euler.angle.roll, euler.angle.pitch, euler.angle.yaw,
-//			  earth.axis.x, earth.axis.y, earth.axis.z);
-
-	  HAL_UART_Transmit(&huart2, UARTbuffer, buffer_size, HAL_MAX_DELAY);
-
-	  //send control to PC
-	  data_to_send.control  = euler.angle.roll/180;	// set control value to packet
-	  data_to_send.control2 = euler.angle.pitch/180;
-	  send_control_packet(data_to_send);	// send new packet to PC
 
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
@@ -224,7 +201,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
   RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 20;
+  RCC_OscInitStruct.PLL.PLLN = 40;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV7;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
@@ -237,11 +214,11 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV2;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_4) != HAL_OK)
   {
     Error_Handler();
   }
@@ -292,7 +269,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x00404C74;
+  hi2c1.Init.Timing = 0x10909CEC;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -338,7 +315,7 @@ static void MX_I2C2_Init(void)
 
   /* USER CODE END I2C2_Init 1 */
   hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x00404C74;
+  hi2c2.Init.Timing = 0x10909CEC;
   hi2c2.Init.OwnAddress1 = 0;
   hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -555,6 +532,44 @@ static void MX_SPI2_Init(void)
 }
 
 /**
+  * @brief TIM7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 7999;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 499;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+
+  /* USER CODE END TIM7_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -717,6 +732,44 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+/*
+ * Main control loop
+ * Call this function for each 50ms
+ */
+void control_function(){
+	//	  control_value = read_joystick();	// read data from mounted joystick
+	//	  control_value2 = read_joystick2();
+
+		  readCompassData(mag_data);
+		  readGyroscopeData(gyro_data);
+		  readAccelometerData(acc_data);
+
+		  FusionVector gyroscope     = {gyro_data[0], gyro_data[1], gyro_data[2]}; // replace this with actual gyroscope data in degrees/s
+		  FusionVector accelerometer = {acc_data[0], acc_data[1], acc_data[2]}; // replace this with actual accelerometer data in g
+		  FusionVector magnetometer  = {mag_data[0], mag_data[1], mag_data[2]};
+
+		  FusionAhrsUpdate(&ahrs, gyroscope, accelerometer, magnetometer, deltaTime);
+
+		  const FusionEuler euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
+	//	  const FusionVector earth = FusionAhrsGetEarthAcceleration(&ahrs);
+
+	//	  buffer_size = sprintf(UARTbuffer, "Roll %0.1f, Pitch %0.1f, Yaw %0.1f \r\n",
+	//	  			  euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
+
+	//	  buffer_size = sprintf(UARTbuffer, "Roll %0.1f, Pitch %0.1f, Yaw %0.1f, X %0.1f, Y %0.1f, Z %0.1f \r\n",
+	//			  euler.angle.roll, euler.angle.pitch, euler.angle.yaw,
+	//			  earth.axis.x, earth.axis.y, earth.axis.z);
+
+		  HAL_UART_Transmit(&huart2, UARTbuffer, buffer_size, HAL_MAX_DELAY);
+
+		  //send control to PC
+		  data_to_send.control  = euler.angle.roll/180;	// set control value to packet
+		  data_to_send.control2 = euler.angle.pitch/180;
+		  send_control_packet(data_to_send);	// send new packet to PC
+}
+
+
 /*
  * Read control signal from on-board joystick
  */
