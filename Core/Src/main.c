@@ -149,8 +149,17 @@ int main(void)
   BSP_COMPASS_Init();
 
   // AHRS Madgwick
-
+  FusionOffset offset;
+//  FusionOffsetInitialise(&offset, 20);
   FusionAhrsInitialise(&ahrs);
+
+  const FusionAhrsSettings settings = {
+          .gain = 0.5f,
+          .accelerationRejection = 10.0f,
+          .magneticRejection = 20.0f,
+          .rejectionTimeout = 5,//5 * 20, /* 5 seconds */
+  };
+  FusionAhrsSetSettings(&ahrs, &settings);
 
   HAL_TIM_Base_Start_IT(&htim7);
   // select initial control value
@@ -750,8 +759,10 @@ void control_function(){
 		  FusionVector magnetometer  = {mag_data[0], mag_data[1], mag_data[2]};
 
 		  FusionAhrsUpdate(&ahrs, gyroscope, accelerometer, magnetometer, deltaTime);
+//		  FusionAhrsUpdateNoMagnetometer(&ahrs, gyroscope, accelerometer, deltaTime);
 
 		  const FusionEuler euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
+
 	//	  const FusionVector earth = FusionAhrsGetEarthAcceleration(&ahrs);
 
 	//	  buffer_size = sprintf(UARTbuffer, "Roll %0.1f, Pitch %0.1f, Yaw %0.1f \r\n",
@@ -761,12 +772,19 @@ void control_function(){
 	//			  euler.angle.roll, euler.angle.pitch, euler.angle.yaw,
 	//			  earth.axis.x, earth.axis.y, earth.axis.z);
 
-		  HAL_UART_Transmit(&huart2, UARTbuffer, buffer_size, HAL_MAX_DELAY);
+//		  HAL_UART_Transmit(&huart2, UARTbuffer, buffer_size, HAL_MAX_DELAY);
 
 		  //send control to PC
 		  data_to_send.control  = euler.angle.roll/180;	// set control value to packet
 		  data_to_send.control2 = euler.angle.pitch/180;
 		  send_control_packet(data_to_send);	// send new packet to PC
+
+//		  buffer_size = sprintf(UARTbuffer, "ACC %0.1f %0.1f %0.1f\t GYR %0.1f %0.1f %0.1f\t MAG %0.1f %0.1f %0.1f \r\n",
+//				acc_data[0], acc_data[1], acc_data[2],
+//				gyro_data[0], gyro_data[1], gyro_data[2],
+//				mag_data[0], mag_data[1], mag_data[2]);
+//
+//		  HAL_UART_Transmit(&huart2, UARTbuffer, buffer_size, HAL_MAX_DELAY);
 }
 
 
