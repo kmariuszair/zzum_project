@@ -741,6 +741,26 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/*
+ * Madgwick quaterion to yaw-pitch-roll angles
+ */
+void compute_yaw_pitch_roll(FusionQuaternion _quat, float * ypt_data){
+	   	float x = _quat.element.x;
+	   	float y = _quat.element.y;
+	   	float z = _quat.element.z;
+	   	float w = _quat.element.w;
+
+	   	float yaw = atan2(2.0*(y*z + w*x), w*w - x*x - y*y + z*z);
+	   	float pitch = asin(-2.0*(x*z - w*y));
+	   	float roll = atan2(2.0*(x*y + w*z), w*w + x*x - y*y - z*z);
+
+	   	ypt_data[0] = yaw;
+	   	ypt_data[1] = pitch;
+	   	ypt_data[2] = roll;
+
+	    return ;
+}
+
 
 /*
  * Main control loop
@@ -762,6 +782,8 @@ void control_function(){
 //		  FusionAhrsUpdateNoMagnetometer(&ahrs, gyroscope, accelerometer, deltaTime);
 
 		  const FusionEuler euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
+//		  float angles [3];
+//		  compute_yaw_pitch_roll(FusionAhrsGetQuaternion(&ahrs), angles);
 
 	//	  const FusionVector earth = FusionAhrsGetEarthAcceleration(&ahrs);
 
@@ -775,8 +797,16 @@ void control_function(){
 //		  HAL_UART_Transmit(&huart2, UARTbuffer, buffer_size, HAL_MAX_DELAY);
 
 		  //send control to PC
+		  //		  data_to_send.control  = angles[1];
+		  //		  data_to_send.control2 = angles[2];
 		  data_to_send.control  = euler.angle.roll/180;	// set control value to packet
 		  data_to_send.control2 = euler.angle.pitch/180;
+
+		  // delete offset in angle in special position
+		  float roll_offset_reset = 0.8;
+		  if(fabs(data_to_send.control) > roll_offset_reset)
+			  data_to_send.control -= copysignf(roll_offset_reset, data_to_send.control);
+
 		  send_control_packet(data_to_send);	// send new packet to PC
 
 //		  buffer_size = sprintf(UARTbuffer, "ACC %0.1f %0.1f %0.1f\t GYR %0.1f %0.1f %0.1f\t MAG %0.1f %0.1f %0.1f \r\n",
