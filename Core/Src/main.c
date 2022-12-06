@@ -520,8 +520,8 @@ static void MX_SPI2_Init(void)
   hspi2.Init.Mode = SPI_MODE_MASTER;
   hspi2.Init.Direction = SPI_DIRECTION_2LINES;
   hspi2.Init.DataSize = SPI_DATASIZE_4BIT;
-  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_HIGH;
+  hspi2.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi2.Init.NSS = SPI_NSS_SOFT;
   hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
@@ -529,7 +529,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi2.Init.CRCPolynomial = 7;
   hspi2.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi2.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi2.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   if (HAL_SPI_Init(&hspi2) != HAL_OK)
   {
     Error_Handler();
@@ -802,19 +802,19 @@ void control_function(){
 		  data_to_send.control  = euler.angle.roll/180;	// set control value to packet
 		  data_to_send.control2 = euler.angle.pitch/180;
 
-		  // delete offset in angle in special position
-//		  float roll_offset_reset = 0.8;
-//		  if(fabs(data_to_send.control) > roll_offset_reset)
-//			  data_to_send.control -= copysignf(roll_offset_reset, data_to_send.control);
+//		  // delete offset in angle in special position
+		  float roll_offset_reset = 0.8;
+		  if(fabs(data_to_send.control) > roll_offset_reset)
+			  data_to_send.control -= copysignf(roll_offset_reset, data_to_send.control);
+
+		  send_control_packet(data_to_send);	// send new packet to PC
+
+//		  buffer_size = sprintf(UARTbuffer, "ACC %0.1f %0.1f %0.1f\t GYR %0.1f %0.1f %0.1f\t MAG %0.1f %0.1f %0.1f \r\n",
+//				acc_data[0], acc_data[1], acc_data[2],
+//				gyro_data[0], gyro_data[1], gyro_data[2],
+//				mag_data[0], mag_data[1], mag_data[2]);
 //
-//		  send_control_packet(data_to_send);	// send new packet to PC
-
-		  buffer_size = sprintf(UARTbuffer, "ACC %0.1f %0.1f %0.1f\t GYR %0.1f %0.1f %0.1f\t MAG %0.1f %0.1f %0.1f \r\n",
-				acc_data[0], acc_data[1], acc_data[2],
-				gyro_data[0], gyro_data[1], gyro_data[2],
-				mag_data[0], mag_data[1], mag_data[2]);
-
-		  HAL_UART_Transmit(&huart2, UARTbuffer, buffer_size, HAL_MAX_DELAY);
+//		  HAL_UART_Transmit(&huart2, UARTbuffer, buffer_size, HAL_MAX_DELAY);
 }
 
 

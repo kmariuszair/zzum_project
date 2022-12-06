@@ -570,8 +570,10 @@ static void SPIx_Init(void)
       */
     SpiHandle.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
     SpiHandle.Init.Direction = SPI_DIRECTION_2LINES;
-    SpiHandle.Init.CLKPhase = SPI_PHASE_1EDGE;
-    SpiHandle.Init.CLKPolarity = SPI_POLARITY_LOW;
+//    SpiHandle.Init.CLKPhase = SPI_PHASE_1EDGE;
+//    SpiHandle.Init.CLKPolarity = SPI_POLARITY_LOW;
+    SpiHandle.Init.CLKPhase = SPI_PHASE_2EDGE;
+    SpiHandle.Init.CLKPolarity = SPI_POLARITY_HIGH;
     SpiHandle.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
     SpiHandle.Init.CRCPolynomial = 7;
     SpiHandle.Init.DataSize = SPI_DATASIZE_8BIT;
