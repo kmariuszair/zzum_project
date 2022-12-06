@@ -77,6 +77,7 @@ size_t buffer_size;
 //Loop period
 float deltaTime = 50.0/1000.0;
 
+float angles[3];	// vector with yaw-pitch-roll angles
 FusionAhrs ahrs;
 
 /* USER CODE END PV */
@@ -754,13 +755,43 @@ void compute_yaw_pitch_roll(FusionQuaternion _quat, float * ypt_data){
 	   	float pitch = asin(-2.0*(x*z - w*y));
 	   	float roll = atan2(2.0*(x*y + w*z), w*w + x*x - y*y - z*z);
 
-	   	ypt_data[0] = yaw;
+	   	ypt_data[2] = yaw;
 	   	ypt_data[1] = pitch;
-	   	ypt_data[2] = roll;
+	   	ypt_data[0] = roll;
 
 	    return ;
 }
+// temp implementation
+FusionEuler FusionQuaternionToEuler_v2(const FusionQuaternion quaternion) {
+//    const float halfMinusQySquared = 0.5f - Q.y * Q.y; // calculate common terms to avoid repeated operations
+    FusionEuler euler;
+    float qz = quaternion.element.z;
+    float qx = quaternion.element.x;
+    float qy = quaternion.element.y;
+    float qw = quaternion.element.w;
 
+//    euler.angle.roll = FusionRadiansToDegrees(atan2f(Q.w * Q.x + Q.y * Q.z, halfMinusQySquared - Q.x * Q.x));
+//    euler.angle.pitch = FusionRadiansToDegrees(FusionAsin(2.0f * (Q.w * Q.y - Q.z * Q.x)));
+//    euler.angle.yaw = FusionRadiansToDegrees(atan2f(Q.w * Q.z + Q.x * Q.y, halfMinusQySquared - Q.z * Q.z));
+
+    if (2*(qx*qz-qw*qy)>=0.94) { //Preventing gimbal lock for north pole
+		euler.angle.yaw  = atan2f(qx*qy-qw*qz,qx*qz+qw*qy);
+		euler.angle.roll = 0;
+    }
+	else if (2*(qx*qz-qw*qy)<=-0.94) { //Preventing gimbal lock for south pole
+		euler.angle.yaw = -atan2f(qx*qy-qw*qz,qx*qz+qw*qy);
+		euler.angle.roll = 0;
+	}
+    else{
+    	euler.angle.yaw = atan2f(qy*qz + qw*qx, 1/2 - (qx*qx + qy*qy));
+		euler.angle.roll = atan2f(qx*qy - qw*qz, 1/2 - (qy*qy + qz*qz));
+		euler.angle.pitch = FusionAsin(-2*(qx * qz - qw * qy));
+    }
+    euler.angle.yaw = FusionRadiansToDegrees(euler.angle.yaw);
+    euler.angle.roll = FusionRadiansToDegrees(euler.angle.roll);
+    euler.angle.pitch = FusionRadiansToDegrees(euler.angle.pitch);
+    return euler;
+}
 
 /*
  * Main control loop
@@ -797,13 +828,13 @@ void control_function(){
 //		  HAL_UART_Transmit(&huart2, UARTbuffer, buffer_size, HAL_MAX_DELAY);
 
 		  //send control to PC
-		  //		  data_to_send.control  = angles[1];
-		  //		  data_to_send.control2 = angles[2];
+//		  data_to_send.control  = angles[0]/M_PI;	// roll
+//		  data_to_send.control2 = angles[1]/M_PI;	// pitch
 		  data_to_send.control  = euler.angle.roll/180;	// set control value to packet
 		  data_to_send.control2 = euler.angle.pitch/180;
-
-//		  // delete offset in angle in special position
-		  float roll_offset_reset = 0.8;
+//
+////		  // delete offset in angle in special position
+		  float roll_offset_reset = 0.9;
 		  if(fabs(data_to_send.control) > roll_offset_reset)
 			  data_to_send.control -= copysignf(roll_offset_reset, data_to_send.control);
 
