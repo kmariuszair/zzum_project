@@ -60,25 +60,37 @@ TIM_HandleTypeDef htim7;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-packet_with_control data_to_send;	// packet with control to PC
+packet_with_control data_to_send;	// pakiet ze sterowaniami do przeslania do PC
 
-float control_value;// Control value in range[-1 ... 1]
-float control_value2;//
+float control_value;  // wartosc sterowania w przedziale [-1 1]
+float control_value2; // wartosc sterowania w przedziale [-1 1]
 
-// board sensor raw variables
+// zmienne surowych odczytow z czujnikow
 float gyro_data[3] = {0.0};
 float acc_data[3] = {0.0};
 float mag_data[3] = {0.0};
 
-//UART buffer
+// bufor UART
 char UARTbuffer[64];
 size_t buffer_size;
 
-//Loop period
+// okres petli-timera
 float deltaTime = 50.0/1000.0;
 
-float angles[3];	// vector with yaw-pitch-roll angles
+float angles[3];	// wector z katami yaw-pitch-roll
 FusionAhrs ahrs;
+FusionOffset offset;
+
+
+// zmienne kalibracyjne
+const FusionMatrix gyroscopeMisalignment = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+const FusionVector gyroscopeSensitivity = {1.0f, 1.0f, 1.0f};
+const FusionVector gyroscopeOffset = {0.0f, 0.0f, 0.0f};
+const FusionMatrix accelerometerMisalignment = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+const FusionVector accelerometerSensitivity = {1.0f, 1.0f, 1.0f};
+const FusionVector accelerometerOffset = {0.0f, 0.0f, 0.0f};
+const FusionMatrix softIronMatrix = {0.989f, 0.021f, 0.017f, 0.021f, 0.969f, 0.003f, 0.017f, 0.003f, 1.044f};
+const FusionVector hardIronOffset = {16.43f, -13.41f, 0.12f};
 
 /* USER CODE END PV */
 
@@ -111,9 +123,9 @@ void MX_USB_HOST_Process(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	// copy PC uart pointer to external variable
+	// kopia wskaznika PC uart do osobnej zmiennej
 	uart_to_pc_ptr = (UART_HandleTypeDef*) &huart2;
-	// init control value to 0
+	// zainicjalizuj zmienna sterowania jako 0
 	control_value = 0;
   /* USER CODE END 1 */
 
@@ -145,13 +157,14 @@ int main(void)
   MX_USB_HOST_Init();
   MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
-  // Init on board sensors
+
+  // Inicjalizacja czujnikow
   BSP_GYRO_Init();
   BSP_COMPASS_Init();
 
   // AHRS Madgwick
   FusionOffset offset;
-//  FusionOffsetInitialise(&offset, 20);
+
   FusionAhrsInitialise(&ahrs);
 
   const FusionAhrsSettings settings = {
@@ -163,8 +176,6 @@ int main(void)
   FusionAhrsSetSettings(&ahrs, &settings);
 
   HAL_TIM_Base_Start_IT(&htim7);
-  // select initial control value
-//  data_to_send.control = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -177,8 +188,7 @@ int main(void)
     MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
-    // sleep for 50ms
-    //TODO: change this delay to more real time
+
     HAL_Delay(50);  // [ms]
   }
   /* USER CODE END 3 */
@@ -742,134 +752,63 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-/*
- * Madgwick quaterion to yaw-pitch-roll angles
- */
-void compute_yaw_pitch_roll(FusionQuaternion _quat, float * ypt_data){
-	   	float x = _quat.element.x;
-	   	float y = _quat.element.y;
-	   	float z = _quat.element.z;
-	   	float w = _quat.element.w;
-
-	   	float yaw = atan2(2.0*(y*z + w*x), w*w - x*x - y*y + z*z);
-	   	float pitch = asin(-2.0*(x*z - w*y));
-	   	float roll = atan2(2.0*(x*y + w*z), w*w + x*x - y*y - z*z);
-
-	   	ypt_data[2] = yaw;
-	   	ypt_data[1] = pitch;
-	   	ypt_data[0] = roll;
-
-	    return ;
-}
-// temp implementation
-FusionEuler FusionQuaternionToEuler_v2(const FusionQuaternion quaternion) {
-//    const float halfMinusQySquared = 0.5f - Q.y * Q.y; // calculate common terms to avoid repeated operations
-    FusionEuler euler;
-    float qz = quaternion.element.z;
-    float qx = quaternion.element.x;
-    float qy = quaternion.element.y;
-    float qw = quaternion.element.w;
-
-//    euler.angle.roll = FusionRadiansToDegrees(atan2f(Q.w * Q.x + Q.y * Q.z, halfMinusQySquared - Q.x * Q.x));
-//    euler.angle.pitch = FusionRadiansToDegrees(FusionAsin(2.0f * (Q.w * Q.y - Q.z * Q.x)));
-//    euler.angle.yaw = FusionRadiansToDegrees(atan2f(Q.w * Q.z + Q.x * Q.y, halfMinusQySquared - Q.z * Q.z));
-
-    if (2*(qx*qz-qw*qy)>=0.94) { //Preventing gimbal lock for north pole
-		euler.angle.yaw  = atan2f(qx*qy-qw*qz,qx*qz+qw*qy);
-		euler.angle.roll = 0;
-    }
-	else if (2*(qx*qz-qw*qy)<=-0.94) { //Preventing gimbal lock for south pole
-		euler.angle.yaw = -atan2f(qx*qy-qw*qz,qx*qz+qw*qy);
-		euler.angle.roll = 0;
-	}
-    else{
-    	euler.angle.yaw = atan2f(qy*qz + qw*qx, 1/2 - (qx*qx + qy*qy));
-		euler.angle.roll = atan2f(qx*qy - qw*qz, 1/2 - (qy*qy + qz*qz));
-		euler.angle.pitch = FusionAsin(-2*(qx * qz - qw * qy));
-    }
-    euler.angle.yaw = FusionRadiansToDegrees(euler.angle.yaw);
-    euler.angle.roll = FusionRadiansToDegrees(euler.angle.roll);
-    euler.angle.pitch = FusionRadiansToDegrees(euler.angle.pitch);
-    return euler;
-}
 
 /*
- * Main control loop
- * Call this function for each 50ms
+ * Glowna funkcja sterujaca
+ * Do wyzwalania co 50ms
  */
 void control_function(){
-	//	  control_value = read_joystick();	// read data from mounted joystick
-	//	  control_value2 = read_joystick2();
-
 		  readCompassData(mag_data);
 		  readGyroscopeData(gyro_data);
 		  readAccelometerData(acc_data);
 
-		  FusionVector gyroscope     = {gyro_data[0], gyro_data[1], gyro_data[2]}; // replace this with actual gyroscope data in degrees/s
-		  FusionVector accelerometer = {acc_data[0], acc_data[1], acc_data[2]}; // replace this with actual accelerometer data in g
-		  FusionVector magnetometer  = {mag_data[0], mag_data[1], mag_data[2]};
+		  FusionVector gyroscope     = {gyro_data[0], gyro_data[1], gyro_data[2]}; // stopnie/s
+		  FusionVector accelerometer = {acc_data[0], acc_data[1], acc_data[2]};    // g
+		  FusionVector magnetometer  = {mag_data[0], mag_data[1], mag_data[2]};    // gaus
+
+		  gyroscope = FusionCalibrationInertial(gyroscope, gyroscopeMisalignment, gyroscopeSensitivity, gyroscopeOffset);
+		  accelerometer = FusionCalibrationInertial(accelerometer, accelerometerMisalignment, accelerometerSensitivity, accelerometerOffset);
+		  magnetometer = FusionCalibrationMagnetic(magnetometer, softIronMatrix, hardIronOffset);
+
+		  // aktualizacja algorytmu offsetu zyroskopu
+		  gyroscope = FusionOffsetUpdate(&offset, gyroscope);
 
 		  FusionAhrsUpdate(&ahrs, gyroscope, accelerometer, magnetometer, deltaTime);
-//		  FusionAhrsUpdateNoMagnetometer(&ahrs, gyroscope, accelerometer, deltaTime);
 
 		  const FusionEuler euler = FusionQuaternionToEuler(FusionAhrsGetQuaternion(&ahrs));
-//		  float angles [3];
-//		  compute_yaw_pitch_roll(FusionAhrsGetQuaternion(&ahrs), angles);
 
-	//	  const FusionVector earth = FusionAhrsGetEarthAcceleration(&ahrs);
-
-	//	  buffer_size = sprintf(UARTbuffer, "Roll %0.1f, Pitch %0.1f, Yaw %0.1f \r\n",
-	//	  			  euler.angle.roll, euler.angle.pitch, euler.angle.yaw);
-
-	//	  buffer_size = sprintf(UARTbuffer, "Roll %0.1f, Pitch %0.1f, Yaw %0.1f, X %0.1f, Y %0.1f, Z %0.1f \r\n",
-	//			  euler.angle.roll, euler.angle.pitch, euler.angle.yaw,
-	//			  earth.axis.x, earth.axis.y, earth.axis.z);
-
-//		  HAL_UART_Transmit(&huart2, UARTbuffer, buffer_size, HAL_MAX_DELAY);
-
-		  //send control to PC
-//		  data_to_send.control  = angles[0]/M_PI;	// roll
-//		  data_to_send.control2 = angles[1]/M_PI;	// pitch
-		  data_to_send.control  = euler.angle.roll/180;	// set control value to packet
+		  data_to_send.control  = euler.angle.roll/180;	 // ustaw wartosci w pakiecie do wyslania
 		  data_to_send.control2 = euler.angle.pitch/180;
-//
-////		  // delete offset in angle in special position
+
 		  float roll_offset_reset = 0.9;
 		  if(fabs(data_to_send.control) > roll_offset_reset)
 			  data_to_send.control -= copysignf(roll_offset_reset, data_to_send.control);
 
-		  send_control_packet(data_to_send);	// send new packet to PC
-
-//		  buffer_size = sprintf(UARTbuffer, "ACC %0.1f %0.1f %0.1f\t GYR %0.1f %0.1f %0.1f\t MAG %0.1f %0.1f %0.1f \r\n",
-//				acc_data[0], acc_data[1], acc_data[2],
-//				gyro_data[0], gyro_data[1], gyro_data[2],
-//				mag_data[0], mag_data[1], mag_data[2]);
-//
-//		  HAL_UART_Transmit(&huart2, UARTbuffer, buffer_size, HAL_MAX_DELAY);
+		  send_control_packet(data_to_send);	// wyslij pakiet ze sterowaniami
 }
 
 
 /*
- * Read control signal from on-board joystick
+ * Odczyt joystica
  */
 float read_joystick(){
-	// read right and left joystick position
+	// odczytaj przesuniecie joystica w prawo i lewo
 	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1))
-		return -1;	// return -1 if joystick is in left position
+		return -1;	// zwroc -1 jezeli joystic jest przesuniety w lewo
 	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_2))
-		return 1;	// return 1 if joystick is in right position
+		return 1;	// zwroc 1 jezeli joystic jest przesuniety w prawo
 
-	return 0;	// return 1 if joystick is in right position
+	return 0;	// zwroc 0 jezeli joystic nie jest przesuniety
 }
 
 float read_joystick2(){
-	// read right and left joystick position
+	// odczytaj przesuniecie joystica w gore i dol
 	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_3))
-		return -1;	// return -1 if joystick is in up position
+		return -1;	// zwroc -1 jezeli joystic jest przesuniety w gore
 	if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_5))
-		return 1;	// return 1 if joystick is in down position
+		return 1;	// zwroc 1 jezeli joystic jest przesuniety w dol
 
-	return 0;	// return 1 if joystick is in right position
+	return 0;	// zwroc 0 jezeli joystic nie jest przesuniety
 }
 
 

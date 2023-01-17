@@ -18,17 +18,17 @@
 #define WHO_I_AM_ADDRESS 0x0F
 
 /*
- * Read and calculate accelerometer position from on board sensor
+ * Odczyt i przeliczanie pomiarow z akcelerometru
  */
 void readAccelometerData(float * update_data);
 
 /*
- * Read and calculate gyroscope position from on board sensor
+ * Odczyt i przeliczanie pomiarow z zyroskopu
  */
 void readGyroscopeData(float * update_data);
 
 /*
- * Read and calculate compass position from on board sensor
+ * Odczyt i przeliczanie pomiarow z magnetometru
  */
 void readCompassData(float * update_data);
 
